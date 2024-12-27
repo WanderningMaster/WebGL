@@ -15,15 +15,23 @@ class Model {
 	constructor(name) {
 		this.name = name;
 		this.iVertexBuffer = gl.createBuffer();
+		this.iIndexBuffer = gl.createBuffer();
+		this.iNormalBuffer = gl.createBuffer();
 		this.count = 0;
 
 	}
 
-	BufferData(vertices) {
+	BufferData({vertices, indices, normals}) {
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STREAM_DRAW);
 
-		this.count = vertices.length / 3;
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iIndexBuffer);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+		this.count = indices.length;
 	};
 
 	Draw() {
@@ -31,7 +39,12 @@ class Model {
 		gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(shProgram.iAttribVertex);
 
-		gl.drawArrays(gl.LINE_STRIP, 0, this.count);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
+		gl.vertexAttribPointer(shProgram.iAttribNormal, 3, gl.FLOAT, false, 0, 0);
+		gl.enableVertexAttribArray(shProgram.iAttribNormal);
+
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iIndexBuffer);
+		gl.drawElements(gl.TRIANGLES, this.count, gl.UNSIGNED_SHORT, 0);
 	};
 }
 
@@ -43,12 +56,15 @@ class ShaderProgram {
 
 		// Location of the attribute variable in the shader program.
 		this.iAttribVertex = -1;
+		this.iAttribNormal = -1;
 		// Location of the uniform specifying a color for the primitive.
 		this.iColor = -1;
 		// Location of the uniform matrix representing the combined transformation.
 		this.iModelViewProjectionMatrix = -1;
-
+		this.iNormalMatrix = -1;
+		this.iLightDir = -1;
 	}
+
 	Use() {
 		gl.useProgram(this.prog);
 	};
@@ -74,18 +90,42 @@ function draw() {
 	let matAccum1 = m4.multiply(translateToPointZero, matAccum0 );
 
 	let modelViewProjection = m4.multiply(projection, matAccum1 );
+	let normalMatrix = m4.transpose(m4.inverse(modelView));
 
 	gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
+	gl.uniformMatrix4fv(shProgram.iNormalMatrix, false, normalMatrix );
+	gl.uniform3fv(shProgram.iLightDir, [15, 0, -10]);
 
 	gl.uniform4fv(shProgram.iColor, [1,1,0,1] );
-
 	gl.uniform3fv(gl.getUniformLocation(shProgram.prog, "scale"), Array(3).fill(scaleFactor));
 
 	surface.Draw();
 }
 
-function CreateSurfaceData() {
+class ArrayBufferIterable {
+	constructor(array) {
+		this.array = array;
+		this.index = 0;
+	}
 
+	reset() {
+		this.index = 0;
+	}
+
+	push_next(x) {
+		if (this.index > this.array.length - 1) {
+			throw new Error('Reached the end of the TypedArray.');
+		}
+		this.array[this.index] = x;
+		this.index += 1;
+	}
+
+	collect() {
+		return this.array;
+	}
+}
+
+function CreateSurfaceData() {
 	const m = 6;
 	const b = 6 * m;
 	const a = 4 * m;
@@ -93,18 +133,24 @@ function CreateSurfaceData() {
 	const phi = 0;
 	const w = m * Math.PI / b;
 
-
-	const rSteps = 50;
-	const uSteps = 50;
-	const numVerticesU = (rSteps + 1) * (uSteps + 1);
-	const numVerticesV = (rSteps + 1) * (uSteps + 1);
-	
-	const verticesCount = numVerticesU + numVerticesV;
-	let vertexList = new Float32Array(verticesCount * 3)
-	let idx = 0;
+	const rSteps = 5;
+	const uSteps = 5;
 
 	const rStepSize = b / rSteps;
 	const uStepSize = (2 * Math.PI) / uSteps;
+	
+	const verticesCount = (rSteps + 1) * (uSteps + 1) * 3;
+	const indicesCount = (rSteps * uSteps) * 6;
+
+	let vertices = new ArrayBufferIterable(
+		new Float32Array(verticesCount),
+	);
+	let normals = new ArrayBufferIterable(
+		new Float32Array(verticesCount),
+	);
+	let indices = new ArrayBufferIterable(
+		new Uint16Array(indicesCount),
+	);
 
 	let r = 0;
 	for (let rStep = 0; rStep <= rSteps; rStep++) {
@@ -114,50 +160,90 @@ function CreateSurfaceData() {
 			const y = r * Math.sin(u);
 			const z = a * Math.pow(Math.E, -n * r) * Math.sin(w * r + phi);
 
-			vertexList[idx++] = x;
-			vertexList[idx++] = y;
-			vertexList[idx++] = z;
+			// we should panic here if out of bounds
+			vertices.push_next(x)
+			vertices.push_next(y)
+			vertices.push_next(z)
+
 			u += uStepSize
 		}
 		r += rStepSize
 	}
 
 
-	let u = 0;
-	for (let uStep = 0; uStep <= uSteps; uStep++) {
-		let r = 0;
-		for (let rStep = 0; rStep <= rSteps; rStep++) {
-			const x = r * Math.cos(u);
-			const y = r * Math.sin(u);
-			const z = a * Math.pow(Math.E, -n * r) * Math.sin(w * r + phi);
+	for (let rStep = 0; rStep < rSteps; rStep++) {
+		for (let uStep = 0; uStep < uSteps; uStep++) {
+			const p0 = rStep * (uSteps + 1) + uStep;
+			const p1 = p0 + 1;
+			const p2 = p0 + (uSteps + 1);
+			const p3 = p2 + 1;
 
-			vertexList[idx++] = x;
-			vertexList[idx++] = y;
-			vertexList[idx++] = z;
-			r += rStepSize
+			indices.push_next(p0);
+			indices.push_next(p1);
+			indices.push_next(p2);
+
+			indices.push_next(p1);
+			indices.push_next(p3);
+			indices.push_next(p2);
 		}
-		u += uStepSize
+	}
+	for (let i = 0; i < vertices.collect().length / 3; i++) {
+		const normal = FacetAverage(i, vertices.collect(), indices.collect());
+		normals.push_next(normal[0])
+		normals.push_next(normal[1])
+		normals.push_next(normal[2])
 	}
 
-	return vertexList;
+	return {
+		vertices: vertices.collect(),
+		indices: indices.collect(),
+		normals: normals.collect(),
+	};
 }
 
+function FacetAverage(vertexIndex, vertices, indices) {
+    let normalSum = [0, 0, 0];
+
+    for (let i = 0; i < indices.length; i += 3) {
+        const i1 = indices[i];
+        const i2 = indices[i + 1];
+        const i3 = indices[i + 2];
+
+        if (i1 === vertexIndex || i2 === vertexIndex || i3 === vertexIndex) {
+            const v1 = [vertices[i1 * 3], vertices[i1 * 3 + 1], vertices[i1 * 3 + 2]];
+            const v2 = [vertices[i2 * 3], vertices[i2 * 3 + 1], vertices[i2 * 3 + 2]];
+            const v3 = [vertices[i3 * 3], vertices[i3 * 3 + 1], vertices[i3 * 3 + 2]];
+
+            const edge1 = m4.subtractVectors(v2, v1);
+            const edge2 = m4.subtractVectors(v3, v1);
+
+            const normal = m4.normalize(m4.cross(edge1, edge2));
+
+            normalSum = m4.addVectors(normalSum, normal);
+        }
+    }
+
+    return m4.normalize(normalSum);
+}
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
-    let prog = createProgram( gl, vertexShaderSource, fragmentShaderSource );
+	let prog = createProgram( gl, vertexShaderSource, fragmentShaderSource );
 
-    shProgram = new ShaderProgram('Basic', prog);
-    shProgram.Use();
+	shProgram = new ShaderProgram('Basic', prog);
+	shProgram.Use();
 
-    shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
-    shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
-    shProgram.iColor                     = gl.getUniformLocation(prog, "color");
+	shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
+	shProgram.iAttribNormal              = gl.getAttribLocation(prog, "normal");
+	shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
+	shProgram.iNormalMatrix              = gl.getUniformLocation(prog, "NormalMatrix");
+	shProgram.iColor                     = gl.getUniformLocation(prog, "color");
+	shProgram.iLightDir                  = gl.getUniformLocation(prog, "lightDir");
 
-    surface = new Model('Surface');
-    surface.BufferData(CreateSurfaceData());
+	surface = new Model('Surface');
+	surface.BufferData(CreateSurfaceData());
 
-    gl.enable(gl.DEPTH_TEST);
+	gl.enable(gl.DEPTH_TEST);
 }
 
 
@@ -192,6 +278,11 @@ function createProgram(gl, vShader, fShader) {
     return prog;
 }
 
+function animate() {
+    draw();
+    requestAnimationFrame(animate);
+}
+
 
 /**
  * initialization function that will be called when the page has loaded
@@ -221,7 +312,7 @@ function init() {
 
 	spaceball = new TrackballRotator(canvas, draw, 0);
 
-	draw();
+	animate()
 	canvas.addEventListener('wheel', handleScroll)
 }
 
