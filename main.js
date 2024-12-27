@@ -67,7 +67,7 @@ function draw() {
 
 	let modelView = spaceball.getViewMatrix();
 
-	let rotateToPointZero = m4.axisRotation([0.707,0.707,0], 0.7);
+	let rotateToPointZero = m4.axisRotation([0.707,0.707,0], -Math.PI/4);
 	let translateToPointZero = m4.translation(0,0,-10);
 
 	let matAccum0 = m4.multiply(rotateToPointZero, modelView );
