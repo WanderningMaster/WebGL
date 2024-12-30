@@ -54,10 +54,15 @@ uniform float Sh;
 uniform sampler2D diffuseMap;
 uniform sampler2D specularMap;
 uniform sampler2D normalMap;
+
+uniform vec2 pivot;
+uniform float texScale;
 void main() {
-	vec3 diffuseColor = texture2D(diffuseMap, vTexCoord).rgb;
-	vec3 specularColor = texture2D(specularMap, vTexCoord).rgb;
-	vec3 normalMapData = texture2D(normalMap, vTexCoord).rgb;
+	vec2 scaledTexCoord = pivot + (vTexCoord - pivot) / texScale;
+
+	vec3 diffuseColor = texture2D(diffuseMap, scaledTexCoord).rgb;
+	vec3 specularColor = texture2D(specularMap, scaledTexCoord).rgb;
+	vec3 normalMapData = texture2D(normalMap, scaledTexCoord).rgb;
 
 	vec3 N = normalize(normalMapData * 2.0 - 1.0);
 	N = normalize(TBN * N);

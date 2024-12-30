@@ -10,9 +10,13 @@ let spaceball;                  // A SimpleRotator object that lets the user rot
 
 let ctx = {
 	scaleFactor: 0.04,
-	stop: false,
 	u: 50,
-	v: 50
+	v: 50,
+	pivot: {
+		u: 0.5,
+		v: 0.5
+	},
+	texScale: 1.0
 }
 
 function debounce(func, wait) {
@@ -54,11 +58,44 @@ class ShaderProgram {
 		this.diffuseMap = -1;
 		this.specularMap = -1;
 		this.normalMap = -1;
+
+		this.pivot = -1;
+		this.texScale = -1;
 	}
 
 	Use() {
 		gl.useProgram(this.prog);
 	};
+}
+
+function handlerKeydown(ev) {
+	let step = 0.1	
+	switch (ev.key) {
+		case 'a':
+			ctx.pivot.u = +Math.max(0.0, ctx.pivot.u - step).toFixed(2);
+			break;
+		case 'd':
+			ctx.pivot.u = +Math.min(1.0, ctx.pivot.u + step).toFixed(2);
+			break;
+		case 'w': 
+			ctx.pivot.v = +Math.min(1.0, ctx.pivot.v + step).toFixed(2);
+			break;
+		case 's': 
+			ctx.pivot.v = +Math.max(0.0, ctx.pivot.v - step).toFixed(2);
+			break;
+		case 'q': 
+			ctx.texScale = +Math.max(ctx.texScale - step, 1.0).toFixed(2);
+			break;
+		case 'e': 
+			ctx.texScale = +Math.min(ctx.texScale + step, 10.0).toFixed(2);
+			break;
+	}
+
+	let pivotLabel = document.getElementById('pivot')
+	let scaleLabel = document.getElementById('texScale')
+
+	pivotLabel.innerText = `Pivot point: (${ctx.pivot.u}, ${ctx.pivot.v})`
+	scaleLabel.innerText = `Texture scale: ${ctx.texScale}`
 }
 
 
@@ -102,6 +139,8 @@ function draw() {
 	gl.uniform1i(shProgram.diffuseMap, 0);
 	gl.uniform1i(shProgram.specularMap, 1);
 	gl.uniform1i(shProgram.normalMap, 2);
+	gl.uniform2f(shProgram.pivot, ctx.pivot.u, ctx.pivot.v);
+	gl.uniform1f(shProgram.texScale, ctx.texScale);
 
 	surface.Draw();
 
@@ -150,6 +189,9 @@ function initGL() {
 	shProgram.diffuseMap	             = gl.getUniformLocation(prog, "diffuseMap");
 	shProgram.specularMap		     = gl.getUniformLocation(prog, "specularMap");
 	shProgram.normalMap		     = gl.getUniformLocation(prog, "normalMap");
+
+	shProgram.pivot		     	     = gl.getUniformLocation(prog, "pivot");
+	shProgram.texScale		     = gl.getUniformLocation(prog, "texScale");
 
 	surface = new Model(ctx, gl, shProgram)
 	surface.BufferData(surface.CreateSurfaceData());
@@ -207,7 +249,12 @@ function init() {
 	}
 	let u = document.getElementById('u')
 	let v = document.getElementById('v')
-	let stopBtn = document.getElementById('stop')
+
+	let pivotLabel = document.getElementById('pivot')
+	let scaleLabel = document.getElementById('texScale')
+
+	pivotLabel.innerText = `Pivot point: (${ctx.pivot.u}, ${ctx.pivot.v})`
+	scaleLabel.innerText = `Texture scale: ${ctx.texScale}`
 
 	spaceball = new TrackballRotator(canvas, null, 0);
 
@@ -217,7 +264,7 @@ function init() {
 	v.value = 50
 	u.addEventListener('input', debounce(nextFrame, 100))
 	v.addEventListener('input', debounce(nextFrame, 100))
-	stopBtn.addEventListener('click', () => ctx.stop = !ctx.stop)
+	window.addEventListener('keydown', handlerKeydown);
 
 	draw()
 }
