@@ -1,5 +1,7 @@
 'use strict';
 import {Model} from './model.mjs'
+import {LoadTexture} from './textures.mjs'
+
 
 let gl;                         // The webgl context.
 let surface;                    // A surface model
@@ -8,6 +10,7 @@ let spaceball;                  // A SimpleRotator object that lets the user rot
 
 let ctx = {
 	scaleFactor: 0.04,
+	stop: false,
 	u: 50,
 	v: 50
 }
@@ -36,6 +39,8 @@ class ShaderProgram {
 
 		this.iAttribVertex = -1;
 		this.iAttribNormal = -1;
+		this.iAttribTangent = -1;
+		this.iAttribTexCoord = -1;
 		this.iColor = -1;
 		this.iModelViewProjectionMatrix = -1;
 		this.iModelViewMatrix = -1;
@@ -45,6 +50,10 @@ class ShaderProgram {
 		this.iKd = -1;
 		this.iKs = -1;
 		this.iSh = -1;
+
+		this.diffuseMap = -1;
+		this.specularMap = -1;
+		this.normalMap = -1;
 	}
 
 	Use() {
@@ -54,9 +63,11 @@ class ShaderProgram {
 
 
 let angle = 0.0;
-const radius = 4.0;
+const radius = 5.0;
 function draw() { 
-	angle += 0.01;
+	if(!ctx.stop) {
+		angle += 0.01;
+	}
 
 	gl.clearColor(0,0,0,1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -85,17 +96,21 @@ function draw() {
 	gl.uniformMatrix3fv(shProgram.iNormalMatrix, false, normalMatrix );
 
 	let lx = radius * Math.cos(angle);
-	let lz = radius * Math.sin(angle);
-	gl.uniform3fv(shProgram.iLightDir, m4.transformPoint(modelView, [lx, -1.0, lz]));
-	// gl.uniform3fv(shProgram.iLightDir, [0.0, 0.0, -1.0]);
+	let ly = radius * Math.sin(angle);
+
+	gl.uniform3fv(shProgram.iLightDir, m4.transformPoint(modelViewProjection, [lx, ly, -5.0]));
 
 	gl.uniform1f(shProgram.iKa, 0.2);
 	gl.uniform1f(shProgram.iKd, 0.7);
 	gl.uniform1f(shProgram.iKs, 0.5);
-	gl.uniform1f(shProgram.iSh, 15.0);
+	gl.uniform1f(shProgram.iSh, 2.0);
+	gl.uniform4fv(shProgram.iColor, [0.2,0.2,0.0,1] );
 
-	gl.uniform4fv(shProgram.iColor, [1,1,0,1] );
 	gl.uniform3fv(gl.getUniformLocation(shProgram.prog, "scale"), Array(3).fill(ctx.scaleFactor));
+
+	gl.uniform1i(shProgram.diffuseMap, 0);
+	gl.uniform1i(shProgram.specularMap, 1);
+	gl.uniform1i(shProgram.normalMap, 2);
 
 	surface.Draw();
 
@@ -103,6 +118,20 @@ function draw() {
 }
 
 
+function loadTextures() {
+	const diffuseMap = LoadTexture(gl, 'static/diffuse.png');
+	const specularMap = LoadTexture(gl, 'static/specular.png');
+	const normalMap = LoadTexture(gl, 'static/normal.png');
+
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, diffuseMap);
+
+	gl.activeTexture(gl.TEXTURE1);
+	gl.bindTexture(gl.TEXTURE_2D, specularMap);
+
+	gl.activeTexture(gl.TEXTURE2);
+	gl.bindTexture(gl.TEXTURE_2D, normalMap);
+}
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -113,9 +142,13 @@ function initGL() {
 
 	shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
 	shProgram.iAttribNormal              = gl.getAttribLocation(prog, "normal");
+	shProgram.iAttribTangent              = gl.getAttribLocation(prog, "tangent");
+	shProgram.iAttribTexCoord            = gl.getAttribLocation(prog, "texCoord");
+
 	shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
 	shProgram.iModelViewMatrix           = gl.getUniformLocation(prog, "ModelViewMatrix");
 	shProgram.iNormalMatrix              = gl.getUniformLocation(prog, "NormalMatrix");
+
 	shProgram.iColor                     = gl.getUniformLocation(prog, "color");
 	shProgram.iLightDir                  = gl.getUniformLocation(prog, "lightDir");
 	shProgram.iKa			     = gl.getUniformLocation(prog, "Ka");
@@ -123,9 +156,13 @@ function initGL() {
 	shProgram.iKs			     = gl.getUniformLocation(prog, "Ks");
 	shProgram.iSh			     = gl.getUniformLocation(prog, "Sh");
 
+	shProgram.diffuseMap	             = gl.getUniformLocation(prog, "diffuseMap");
+	shProgram.specularMap		     = gl.getUniformLocation(prog, "specularMap");
+	shProgram.normalMap		     = gl.getUniformLocation(prog, "normalMap");
 
 	surface = new Model(ctx, gl, shProgram)
 	surface.BufferData(surface.CreateSurfaceData());
+	loadTextures()
 
 	gl.enable(gl.DEPTH_TEST);
 }
@@ -179,6 +216,7 @@ function init() {
 	}
 	let u = document.getElementById('u')
 	let v = document.getElementById('v')
+	let stopBtn = document.getElementById('stop')
 
 	spaceball = new TrackballRotator(canvas, null, 0);
 
@@ -188,6 +226,7 @@ function init() {
 	v.value = 50
 	u.addEventListener('input', debounce(nextFrame, 100))
 	v.addEventListener('input', debounce(nextFrame, 100))
+	stopBtn.addEventListener('click', () => ctx.stop = !ctx.stop)
 
 	draw()
 }
