@@ -104,75 +104,6 @@ export class Model {
 		return {x,y,z}
 	}
 
-	// CreateSurfaceData() {
-	// 	const vStepSize = 36 / this.vSteps;
-	// 	const uStepSize = 2 * Math.PI / this.uSteps;
-	//
-	// 	const totalTriangles = this.vSteps * this.uSteps * 2;
-	// 	const totalVertices  = totalTriangles * 3;
-	//
-	// 	let vertices = new ArrayBufferIterable(new Float32Array(totalVertices * 3));
-	//
-	// 	let normals  = new ArrayBufferIterable(new Float32Array(totalVertices * 3));
-	// 	let tangents = new ArrayBufferIterable(new Float32Array(totalVertices * 3));
-	// 	let texCoords  = new ArrayBufferIterable(new Float32Array(totalVertices * 2));
-	//
-	// 	let indices  = new ArrayBufferIterable(new Uint16Array(totalVertices));
-	//
-	// 	let idxOffset = 0;
-	// 	let v = 0;
-	// 	for (let vStep = 0; vStep < this.vSteps; vStep++) {
-	// 		let u = 0;
-	// 		for (let uStep = 0; uStep < this.uSteps; uStep++) {
-	// 			const p0 = this.Eq(u, v);
-	// 			const p1 = this.Eq(u + uStepSize, v);
-	// 			const p2 = this.Eq(u, v + vStepSize);
-	// 			const p3 = this.Eq(u + uStepSize, v + vStepSize);
-	// 			
-	// 			const uv0 = {u: u / 2*Math.PI, v: v / 36}
-	// 			const uv1 = {u: (u + uStepSize)/2*Math.PI, v: v / 36,}
-	// 			const uv2 = {u: u / 2*Math.PI, v: (v + vStepSize) / 36}
-	// 			const uv3 = {u: (u + uStepSize) / 2*Math.PI, v: (v + vStepSize) / 36}
-	//
-	// 			const [n1, t1] = this.computeFaceNormalAndTangent(p0, p1, p2, uv0, uv1, uv2);
-	//
-	// 			vertices.push_batch(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z)
-	// 			normals.push_batch(n1[0], n1[1], n1[2], n1[0], n1[1], n1[2],n1[0], n1[1], n1[2])
-	// 			indices.push_batch(idxOffset++, idxOffset++, idxOffset++);
-	// 			texCoords.push_batch(
-	// 				u / 2*Math.PI, v / 36,
-	// 				(u + uStepSize)/2*Math.PI, v / 36,
-	// 				u / 2*Math.PI, (v + vStepSize) / 36,
-	// 			);
-	// 			tangents.push_batch(t1.x, t1.y, t1.z, t1.x, t1.y, t1.z, t1.x, t1.y, t1.z);
-	//
-	// 			const [n2, t2] = this.computeFaceNormalAndTangent(p1, p3, p2, uv1, uv3, uv2);
-	// 			vertices.push_batch(p1.x, p1.y, p1.z, p3.x, p3.y, p3.z, p2.x, p2.y, p2.z)
-	// 			normals.push_batch(n2[0], n2[1], n2[2], n2[0], n2[1], n2[2],n2[0], n2[1], n2[2])
-	// 			indices.push_batch(idxOffset++, idxOffset++, idxOffset++);
-	// 			texCoords.push_batch(
-	// 				(u + uStepSize)/2*Math.PI, v / 36,
-	// 				(u + uStepSize) / 2*Math.PI, (v + vStepSize) / 36,
-	// 				u / 2*Math.PI, (v + vStepSize) / 36,
-	// 			);
-	// 			tangents.push_batch(t2.x, t2.y, t2.z, t2.x, t2.y, t2.z, t2.x, t2.y, t2.z);
-	//
-	// 			u += uStepSize;
-	//
-	// 		}
-	// 		v += vStepSize;
-	// 	}
-	//
-	// 	return {
-	// 		vertices: vertices.collect(),
-	// 		indices: indices.collect(),
-	// 		normals: normals.collect(),
-	// 		texCoords: texCoords.collect(),
-	// 		tangents: tangents.collect()
-	// 	};
-	// }
-	
-
 	CreateSurfaceData() {
 		let vStepSize = 36 / this.vSteps;
 		let uStepSize = (2 * Math.PI) / this.uSteps;
@@ -255,9 +186,9 @@ export class Model {
 				normalsAccum[idxV][1] += n[1];
 				normalsAccum[idxV][2] += n[2];
 
-				tangentsAccum[idxV][0] = t[0];
-				tangentsAccum[idxV][1] = t[1];
-				tangentsAccum[idxV][2] = t[2];
+				tangentsAccum[idxV][0] += t[0];
+				tangentsAccum[idxV][1] += t[1];
+				tangentsAccum[idxV][2] += t[2];
 			}
 		}
 
