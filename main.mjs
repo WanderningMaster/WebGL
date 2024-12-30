@@ -62,13 +62,7 @@ class ShaderProgram {
 }
 
 
-let angle = 0.0;
-const radius = 5.0;
 function draw() { 
-	if(!ctx.stop) {
-		angle += 0.01;
-	}
-
 	gl.clearColor(0,0,0,1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -95,16 +89,13 @@ function draw() {
 	gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, modelView );
 	gl.uniformMatrix3fv(shProgram.iNormalMatrix, false, normalMatrix );
 
-	let lx = radius * Math.cos(angle);
-	let ly = radius * Math.sin(angle);
+	gl.uniform3fv(shProgram.iLightDir, m4.transformPoint(modelViewProjection, [1, 1, -1.0]));
 
-	gl.uniform3fv(shProgram.iLightDir, m4.transformPoint(modelViewProjection, [lx, ly, -5.0]));
-
-	gl.uniform1f(shProgram.iKa, 0.2);
+	gl.uniform1f(shProgram.iKa, 0.1);
 	gl.uniform1f(shProgram.iKd, 0.7);
 	gl.uniform1f(shProgram.iKs, 0.5);
 	gl.uniform1f(shProgram.iSh, 2.0);
-	gl.uniform4fv(shProgram.iColor, [0.2,0.2,0.0,1] );
+	gl.uniform4fv(shProgram.iColor, [1,1,1,1] );
 
 	gl.uniform3fv(gl.getUniformLocation(shProgram.prog, "scale"), Array(3).fill(ctx.scaleFactor));
 
@@ -114,7 +105,7 @@ function draw() {
 
 	surface.Draw();
 
-	requestAnimationFrame(draw);
+	requestAnimationFrame(draw)
 }
 
 

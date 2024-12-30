@@ -1,5 +1,3 @@
-import {LoadTexture} from './textures.mjs'
-
 class ArrayBufferIterable {
 	constructor(array) {
 		this.buffer = array;
@@ -243,7 +241,7 @@ export class Model {
 			let uv1 = vertexUV[i1];
 			let uv2 = vertexUV[i2];
 
-			const [faceNormal, faceTangent] = this.computeFaceNormalAndTangent(
+			const [n, t] = this.computeFaceNormalAndTangent(
 				{x: v0[0], y: v0[1], z: v0[2]}, 
 				{x: v1[0], y: v1[1], z: v1[2]},
 				{x: v2[0], y: v2[1], z: v2[2]},
@@ -253,13 +251,13 @@ export class Model {
 			);
 
 			for (let idxV of [i0, i1, i2]) {
-				normalsAccum[idxV][0] += faceNormal[0];
-				normalsAccum[idxV][1] += faceNormal[1];
-				normalsAccum[idxV][2] += faceNormal[2];
+				normalsAccum[idxV][0] += n[0];
+				normalsAccum[idxV][1] += n[1];
+				normalsAccum[idxV][2] += n[2];
 
-				tangentsAccum[idxV][0] += faceTangent.x;
-				tangentsAccum[idxV][1] += faceTangent.y;
-				tangentsAccum[idxV][2] += faceTangent.z;
+				tangentsAccum[idxV][0] = t[0];
+				tangentsAccum[idxV][1] = t[1];
+				tangentsAccum[idxV][2] = t[2];
 			}
 		}
 
@@ -306,7 +304,8 @@ export class Model {
 
 		const n = m4.cross(edge1, edge2);
 		const nNorm = m4.normalize(n)
+		const tNorm = m4.normalize([tangent.x, tangent.y, tangent.z])
 
-		return [nNorm, tangent];
+		return [nNorm, tNorm];
 	}
 }
